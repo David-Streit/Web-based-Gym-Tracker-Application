@@ -1,0 +1,29 @@
+{
+  "id": 42,
+  "workout_date": "2026-09-28",
+  "notes": "Push day, last bench set to failure",
+  "entries": [
+    {
+      "exercise_id": 12,
+      "exercise_name": "Bench Press",
+      "sets": [
+        { "set_number": 1, "weight_kg": 70.0, "reps": 8 },
+        { "set_number": 2, "weight_kg": 75.0, "reps": 6 },
+        { "set_number": 3, "weight_kg": 77.5, "reps": 4 }
+      ]
+    },
+    {
+      "exercise_id": 14,
+      "exercise_name": "Overhead Press",
+      "sets": [
+        { "set_number": 1, "weight_kg": 40.0, "reps": 10 },
+        { "set_number": 2, "weight_kg": 40.0, "reps": 9 }
+      ]
+    }
+  ],
+  "muscle_groups": ["Chest", "Shoulders"],
+  "total_volume_kg": 2080.0,
+  "new_personal_records": [
+    { "exercise_name": "Bench Press", "weight_kg": 77.5, "previous_best_kg": 75.0 }
+  ]
+}

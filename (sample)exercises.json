@@ -1,0 +1,18 @@
+{
+  "muscle_groups": [
+    { "id": 1, "name": "Legs", "svg_key": "legs" },
+    { "id": 2, "name": "Chest", "svg_key": "chest" },
+    { "id": 3, "name": "Back", "svg_key": "back" },
+    { "id": 4, "name": "Shoulders", "svg_key": "shoulders" },
+    { "id": 5, "name": "Biceps", "svg_key": "biceps" },
+    { "id": 6, "name": "Triceps", "svg_key": "triceps" },
+    { "id": 7, "name": "Abs", "svg_key": "abs" }
+  ],
+  "exercises": [
+    { "id": 11, "name": "Back Squat", "muscle_group_id": 1, "is_custom": false },
+    { "id": 12, "name": "Bench Press", "muscle_group_id": 2, "is_custom": false },
+    { "id": 13, "name": "Pull-up", "muscle_group_id": 3, "is_custom": false },
+    { "id": 14, "name": "Overhead Press", "muscle_group_id": 4, "is_custom": false },
+    { "id": 27, "name": "Cable Crunch (gym 2 machine)", "muscle_group_id": 7, "is_custom": true }
+  ]
+}
