@@ -9,7 +9,9 @@ def configure_pages(
     workout_service,
     muscle_map_service,
     weight_service,
+    admin_service,
     require_login,
+    require_admin,
     get_current_user_id,
     set_current_user_id,
 ):
@@ -310,9 +312,11 @@ def configure_pages(
 
     @ui.page("/dashboard")
     def dashboard_page() :
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         with ui.column().classes("w-full items-center").style("height: 100vh; overflow: hidden;"):
 
@@ -497,9 +501,11 @@ def configure_pages(
 
     @ui.page("/workout/edit/{session_id}")
     def edit_workout_page(session_id: int):
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         # load the existing workout session details for editing
         session_data = workout_service.get_session_by_id(
@@ -572,9 +578,11 @@ def configure_pages(
 
     @ui.page("/workout/new")
     def new_workout_page():
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         def show_add_exercise_dialog(user_id: int):
             # modal dialog used to manage custom exercises for the current user
@@ -761,9 +769,11 @@ def configure_pages(
 
     @ui.page("/week")
     def week_view_page():
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         state = {"week_offset": 0}
 
@@ -892,9 +902,11 @@ def configure_pages(
         
     @ui.page("/pr-tracker")
     def pr_tracker_page():
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         # load PR summaries and grouped PR history for the chart and table
         best_prs = workout_service.get_best_prs(user_id=user_id)
@@ -1249,9 +1261,11 @@ setTimeout(initPrChart, 300);
 
     @ui.page("/weight-tracker")
     def weight_tracker_page():
+        user_id, redirect = require_login()
+        if redirect:
+            return redirect
         ui.dark_mode().enable()
         ui.add_head_html(FULL_PAGE_STYLE)
-        user_id = require_login()
 
         # load weight tracking entries and the current goal for this user
         entries = weight_service.list_entries(user_id)
@@ -1440,3 +1454,11 @@ setTimeout(initPrChart, 300);
                         </q-td>
                         """,
                     )
+
+    from ui.admin_pages import configure_admin_pages
+    configure_admin_pages(
+        admin_service=admin_service,
+        require_admin=require_admin,
+        set_current_user_id=set_current_user_id,
+        full_page_style=FULL_PAGE_STYLE,
+    )

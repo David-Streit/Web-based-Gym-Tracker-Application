@@ -36,6 +36,35 @@ class WeightService:
             )
             return [{"id": e.id, "date": e.entry_date, "weight_kg": e.weight_kg} for e in entries]
 
+    def update_entry(self, entry_id: int, user_id: int, entry_date: date, weight_kg: float) -> None:
+        # change date and/or weight of an existing entry belonging to the user
+        if weight_kg <= 0:
+            raise ValueError("Weight must be greater than zero.")
+        if entry_date > date.today():
+            raise ValueError("Entry date cannot be in the future.")
+        with get_session() as session:
+            entry = (
+                session.query(WeightEntry)
+                .filter(WeightEntry.id == entry_id, WeightEntry.user_id == user_id)
+                .first()
+            )
+            if entry is None:
+                raise ValueError("Entry not found.")
+            clash = (
+                session.query(WeightEntry)
+                .filter(
+                    WeightEntry.user_id == user_id,
+                    WeightEntry.entry_date == entry_date,
+                    WeightEntry.id != entry_id,
+                )
+                .first()
+            )
+            if clash:
+                raise ValueError("There is already a weight entry for this date.")
+            entry.entry_date = entry_date
+            entry.weight_kg = weight_kg
+            session.commit()
+
     def delete_entry(self, entry_id: int, user_id: int) -> None:
         # remove a specific weight log belonging to the user
         with get_session() as session:

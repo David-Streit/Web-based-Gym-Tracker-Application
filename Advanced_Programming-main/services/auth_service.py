@@ -42,10 +42,17 @@ class AuthService:
 
             return user.id
 
-    def get_user_by_id(self, user_id: int) -> dict[str, str] | None:
+    def get_user_by_id(self, user_id: int) -> dict | None:
         with get_session() as session:
             # load user data for rendering and session validation
             user = session.get(User, user_id)
             if not user:
                 return None
-            return {"id": user.id, "username": user.username}
+            return {"id": user.id, "username": user.username, "is_admin": bool(user.is_admin)}
+
+    def is_admin(self, user_id: int | None) -> bool:
+        if user_id is None:
+            return False
+        with get_session() as session:
+            user = session.get(User, user_id)
+            return bool(user and user.is_admin)
