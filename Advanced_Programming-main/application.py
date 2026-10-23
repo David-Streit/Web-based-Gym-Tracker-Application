@@ -10,7 +10,7 @@ from services.muscle_map_service import MuscleMapService
 from services.weight_service import WeightService
 from services.admin_service import AdminService
 from ui.pages import configure_pages
-
+# test
 
 class GymProgressTrackerApplication:
 
