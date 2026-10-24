@@ -186,6 +186,9 @@ class WorkoutService:
     ) -> None:
         if not muscle_ids:
             raise ValueError("Select at least one muscle group.")
+        # same rules as create_session
+        if workout_date > date.today():
+            raise ValueError("Workout date cannot be in the future.")
 
         with get_session() as session:
             ws = (
@@ -199,6 +202,19 @@ class WorkoutService:
 
             if ws is None:
                 raise ValueError("Workout not found.")
+
+            # another workout of this user on the new date? (ignore this one)
+            duplicate = (
+                session.query(WorkoutSession)
+                .filter(
+                    WorkoutSession.user_id == user_id,
+                    WorkoutSession.workout_date == workout_date,
+                    WorkoutSession.id != session_id,
+                )
+                .first()
+            )
+            if duplicate:
+                raise ValueError("You already have a tracked training for this day.")
 
             ws.workout_date = workout_date
             ws.notes = notes

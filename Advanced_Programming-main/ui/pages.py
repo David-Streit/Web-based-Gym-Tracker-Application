@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import date, timedelta
 from nicegui import ui, app
+from fastapi.responses import RedirectResponse
 from ui.heatmap import build_heatmap_svg
 
 
@@ -508,10 +509,14 @@ def configure_pages(
         ui.add_head_html(FULL_PAGE_STYLE)
 
         # load the existing workout session details for editing
-        session_data = workout_service.get_session_by_id(
-            session_id=session_id,
-            user_id=user_id,
-        )
+        # unknown id or a workout of another user -> back to dashboard instead of error 500
+        try:
+            session_data = workout_service.get_session_by_id(
+                session_id=session_id,
+                user_id=user_id,
+            )
+        except ValueError:
+            return RedirectResponse("/dashboard")
 
         with ui.column().classes("w-full items-center").style(
             "height: 100vh; overflow: hidden; padding: 16px;"
