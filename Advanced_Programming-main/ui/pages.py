@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from nicegui import ui, app
 from fastapi.responses import RedirectResponse
 from ui.heatmap import build_heatmap_svg
+from ui import api_client
 
 
 def configure_pages(
@@ -15,6 +16,7 @@ def configure_pages(
     require_admin,
     get_current_user_id,
     set_current_user_id,
+    get_api_token,
 ):
 
     #shared full-page style
@@ -211,14 +213,14 @@ def configure_pages(
                     "Password", password=True, password_toggle_button=True
                 ).props("outlined").classes("w-full")
 
-                def do_login():
-                    # authenticate user credentials through auth_service
-                    try:
-                        user_id = auth_service.login(username.value or "", password.value or "")
-                        set_current_user_id(user_id)
-                        ui.navigate.to("/dashboard")
-                    except ValueError as e:
-                        ui.notify(str(e), type="negative")
+                async def do_login():
+                    # authenticate through the API: POST /api/auth/login returns a token
+                    result = await api_client.login(username.value or "", password.value or "")
+                    if not result.ok:
+                        ui.notify(result.error, type="negative")
+                        return
+                    set_current_user_id(result.data["user_id"], result.data["token"])
+                    ui.navigate.to("/admin" if result.data["is_admin"] else "/dashboard")
 
                 with ui.row().classes("gap-3 mt-4 w-full"):
                     ui.button("Login", on_click=do_login).classes("flex-1")
@@ -226,8 +228,8 @@ def configure_pages(
                         "Register", on_click=lambda: ui.navigate.to("/register")
                     ).props("outline").classes("flex-1")
 
-                username.on("keydown.enter", lambda e: do_login())
-                password.on("keydown.enter", lambda e: do_login())
+                username.on("keydown.enter", do_login)
+                password.on("keydown.enter", do_login)
 
     @ui.page("/register")
     def register_page():
@@ -291,18 +293,23 @@ def configure_pages(
                     "Password", password=True, password_toggle_button=True
                 ).props("outlined").classes("w-full")
 
-                def do_create_account():
-                    # register a new user using auth_service and log them in
+                async def do_create_account():
+                    # register a new user using auth_service, then log in through the API
                     try:
-                        user_id = auth_service.register(
+                        auth_service.register(
                             new_username.value or "",
                             new_password.value or "",
                         )
-                        set_current_user_id(user_id)
-                        ui.notify("Register Successful!", type="positive")
-                        ui.navigate.to("/dashboard")
                     except ValueError as e:
                         ui.notify(str(e), type="negative")
+                        return
+                    result = await api_client.login(new_username.value or "", new_password.value or "")
+                    if not result.ok:
+                        ui.notify(result.error, type="negative")
+                        return
+                    set_current_user_id(result.data["user_id"], result.data["token"])
+                    ui.notify("Register Successful!", type="positive")
+                    ui.navigate.to("/dashboard")
 
                 with ui.row().classes("gap-3 mt-4 w-full"):
                     # submit registration form
@@ -543,7 +550,7 @@ def configure_pages(
 
                 ui.separator().style("flex-shrink: 0;")
                 with ui.row().classes("gap-2 justify-end").style("flex-shrink: 0; padding-top: 8px;"):
-                    def save():
+                    async def save():
                         new_muscle_ids = [m["id"] for (m, cb) in checkboxes if cb.value]
                         if not new_muscle_ids:
                             ui.notify("Select at least one muscle group.", type="warning")
@@ -552,14 +559,24 @@ def configure_pages(
                             workout_date_value = date.fromisoformat(
                                 str(workout_date.value).replace("/", "-")
                             )
-                            # save updated workout session details
-                            workout_service.update_session(
-                                session_id=session_id,
-                                user_id=user_id,
-                                workout_date=workout_date_value,
-                                notes=notes.value,
-                                muscle_ids=new_muscle_ids,
-                            )
+                        except ValueError:
+                            ui.notify("Please enter a valid date.", type="negative")
+                            return
+                        # save updated workout session through the API: PUT /api/workouts/{id}
+                        result = await api_client.update_workout(
+                            token=get_api_token(),
+                            workout_id=session_id,
+                            workout_date=workout_date_value,
+                            notes=notes.value,
+                            muscle_ids=new_muscle_ids,
+                        )
+                        if not result.ok:
+                            ui.notify(result.error, type="negative")
+                            if result.status_code == 401:
+                                ui.navigate.to("/")
+                            return
+                        try:
+                            # PRs are not part of the API yet and are still saved via the service
                             for exercise_name, (cb, pr_input) in exercise_inputs.items():
                                 if cb.value and pr_input.value:
                                     try:
@@ -733,7 +750,7 @@ def configure_pages(
 
                 ui.separator().style("flex-shrink: 0;")
                 with ui.row().classes("gap-2 justify-end").style("flex-shrink: 0; padding-top: 8px;"):
-                    def save():
+                    async def save():
                         selected_ids = [m["id"] for (m, cb) in muscle_checkboxes if cb.value]
                         if not selected_ids:
                             ui.notify("Select at least one muscle group.", type="warning")
@@ -742,14 +759,25 @@ def configure_pages(
                             workout_date_val = date.fromisoformat(
                                 str(workout_date.value).replace("/", "-")
                             )
-                            # create a new workout session record
-                            workout_service.create_session(
-                                user_id=user_id,
-                                workout_date=workout_date_val,
-                                notes=notes_widget.value,
-                                muscle_ids=selected_ids,
-                            )
-                            # PRs save
+                        except ValueError:
+                            ui.notify("Please enter a valid date.", type="negative")
+                            return
+                        # create the workout through the API: POST /api/workouts
+                        # (business rules are checked in WorkoutService behind the API)
+                        result = await api_client.create_workout(
+                            token=get_api_token(),
+                            workout_date=workout_date_val,
+                            notes=notes_widget.value,
+                            muscle_ids=selected_ids,
+                        )
+                        if not result.ok:
+                            # e.g. 400 "You already have a tracked training for this day."
+                            ui.notify(result.error, type="negative")
+                            if result.status_code == 401:
+                                ui.navigate.to("/")
+                            return
+                        try:
+                            # PRs are not part of the API yet and are still saved via the service
                             for exercise_name, (cb, pr_input) in exercise_inputs.items():
                                 if cb.value and pr_input.value:
                                     try:
@@ -764,7 +792,7 @@ def configure_pages(
                                             )
                                     except ValueError:
                                         pass
-                            ui.notify("Workout saved!", type="positive")
+                            ui.notify(f"Workout saved (id {result.data['id']})", type="positive")
                             ui.navigate.to("/dashboard")
                         except ValueError as e:
                             ui.notify(str(e), type="negative")

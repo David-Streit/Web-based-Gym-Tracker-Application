@@ -10,7 +10,8 @@ from services.muscle_map_service import MuscleMapService
 from services.weight_service import WeightService
 from services.admin_service import AdminService
 from ui.pages import configure_pages
-# test
+from api.main import api_router
+from api.tokens import revoke_token, user_id_for_token
 
 class GymProgressTrackerApplication:
 
@@ -36,11 +37,16 @@ class GymProgressTrackerApplication:
     def get_current_user_id(self):
         return app.storage.user.get("user_id")
 
-    def set_current_user_id(self, user_id):
+    def set_current_user_id(self, user_id, api_token=None):
         if user_id is None:
+            revoke_token(app.storage.user.get("api_token"))
             app.storage.user.clear()
         else:
             app.storage.user["user_id"] = user_id
+            app.storage.user["api_token"] = api_token
+
+    def get_api_token(self):
+        return app.storage.user.get("api_token")
 
     def require_login(self):
         """
@@ -57,6 +63,10 @@ class GymProgressTrackerApplication:
             return None, RedirectResponse("/")
         if self.auth_service.is_admin(user_id):
             return None, RedirectResponse("/admin")
+        if user_id_for_token(self.get_api_token()) != user_id:
+            # no valid API token (e.g. server restarted) -> log in again
+            self.set_current_user_id(None)
+            return None, RedirectResponse("/")
         return user_id, None
 
     def require_admin(self):
@@ -71,6 +81,10 @@ class GymProgressTrackerApplication:
     def configure(self):
         app.add_static_files('/static', 'static')
 
+        # The REST API runs in the same server as the web interface
+        # (same port), so /api/... and /docs are available next to the pages.
+        app.include_router(api_router)
+
         init_db()
         self.build_services()
 
@@ -84,6 +98,7 @@ class GymProgressTrackerApplication:
             require_admin=self.require_admin,
             get_current_user_id=self.get_current_user_id,
             set_current_user_id=self.set_current_user_id,
+            get_api_token=self.get_api_token,
         )
 
     def run(self):
@@ -92,6 +107,8 @@ class GymProgressTrackerApplication:
         ui.run(
             title="Gym Progress Tracker",
             reload=False,
+            port=int(os.environ.get("PORT", "8080")),
+            fastapi_docs=True,  # Swagger UI for the API at /docs
             storage_secret=os.environ.get(
                 "NICEGUI_STORAGE_SECRET",
                 "dev-secret-change-me"
